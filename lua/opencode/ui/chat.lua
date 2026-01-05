@@ -10,6 +10,7 @@ local M = {}
 ---@field streaming_message_index number|nil
 ---@field provider_id string
 ---@field model_id string
+---@field session_creation_pending boolean
 
 ---@type opencode.ui.chat.State|nil
 M.state = nil
@@ -86,6 +87,7 @@ function M.open(opts)
     streaming_message_index = nil,
     provider_id = opts.provider_id or config.provider_id or "anthropic",
     model_id = opts.model_id or config.model_id or "claude-3-5-sonnet-20241022",
+    session_creation_pending = false,
   }
 
   -- Setup keymaps
@@ -244,6 +246,12 @@ local function validate_session_ready()
   end
 
   if not M.state.session_id then
+    -- Check if session creation is already in progress
+    if M.state.session_creation_pending then
+      vim.notify("Session is being created, please wait...", vim.log.levels.WARN, { title = "opencode" })
+      return false
+    end
+    
     vim.notify(
       "No active session. Creating a new session...",
       vim.log.levels.WARN,
@@ -376,10 +384,11 @@ function M.new_session()
     return
   end
 
-  -- Clear messages
+  -- Clear messages and mark session creation as pending
   M.state.messages = {}
   M.state.session_id = nil
   M.state.streaming_message_index = nil
+  M.state.session_creation_pending = true
   M.render()
 
   -- Create new session
@@ -387,6 +396,18 @@ function M.new_session()
   client.tui_execute_command("session.new", M.state.port, function()
     -- Session ID will be set via SSE event
   end)
+  
+  -- Add a timeout to reset the pending flag if session creation fails
+  vim.defer_fn(function()
+    if M.state and M.state.session_creation_pending and not M.state.session_id then
+      M.state.session_creation_pending = false
+      vim.notify(
+        "Session creation timed out. Please check opencode server or try again.",
+        vim.log.levels.WARN,
+        { title = "opencode" }
+      )
+    end
+  end, 10000)
 end
 
 ---Interrupt the current session
@@ -419,6 +440,7 @@ end
 function M.set_session_id(session_id)
   if M.state then
     M.state.session_id = session_id
+    M.state.session_creation_pending = false
   end
 end
 
