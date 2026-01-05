@@ -56,13 +56,8 @@ function M.subscribe(port)
       local session = event.properties and event.properties.session
       if session and session.id then
         chat.set_session_id(session.id)
-        -- Add a system message to indicate new session
-        chat.add_message({
-          role = "system",
-          text = "Session started: " .. session.id,
-          streaming = false,
-          complete = true,
-        })
+        -- Notify that session is ready
+        vim.notify("Session ready", vim.log.levels.INFO, { title = "opencode" })
       end
     elseif event.type == "session.idle" then
       -- Session finished responding

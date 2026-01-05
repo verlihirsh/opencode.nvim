@@ -10,6 +10,7 @@ local M = {}
 ---@field streaming_message_index number|nil
 ---@field provider_id string
 ---@field model_id string
+---@field session_creation_pending boolean
 
 ---@type opencode.ui.chat.State|nil
 M.state = nil
@@ -86,6 +87,7 @@ function M.open(opts)
     streaming_message_index = nil,
     provider_id = opts.provider_id or config.provider_id or "anthropic",
     model_id = opts.model_id or config.model_id or "claude-3-5-sonnet-20241022",
+    session_creation_pending = false,
   }
 
   -- Setup keymaps
@@ -235,10 +237,37 @@ function M.render()
   end
 end
 
+---Validate that the chat is ready for interaction
+---@return boolean ready True if ready, false otherwise (with notification shown)
+local function validate_session_ready()
+  if not M.state or not M.state.port then
+    vim.notify("No connection to opencode", vim.log.levels.ERROR, { title = "opencode" })
+    return false
+  end
+
+  if not M.state.session_id then
+    -- Check if session creation is already in progress
+    if M.state.session_creation_pending then
+      vim.notify("Session is being created, please wait...", vim.log.levels.WARN, { title = "opencode" })
+      return false
+    end
+    
+    vim.notify(
+      "No active session. Creating a new session...",
+      vim.log.levels.WARN,
+      { title = "opencode" }
+    )
+    -- Try to create a session on-demand
+    M.new_session()
+    return false
+  end
+
+  return true
+end
+
 ---Prompt for user input
 function M.prompt_input()
-  if not M.state or not M.state.port or not M.state.session_id then
-    vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
+  if not validate_session_ready() then
     return
   end
 
@@ -252,8 +281,7 @@ end
 ---Send a message
 ---@param text string
 function M.send_message(text)
-  if not M.state or not M.state.port or not M.state.session_id then
-    vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
+  if not validate_session_ready() then
     return
   end
 
@@ -356,18 +384,37 @@ function M.new_session()
     return
   end
 
-  -- Clear messages
+  -- Clear messages and mark session creation as pending
   M.state.messages = {}
   M.state.session_id = nil
   M.state.streaming_message_index = nil
+  M.state.session_creation_pending = true
   M.render()
 
   -- Create new session
   local client = require("opencode.cli.client")
   client.tui_execute_command("session.new", M.state.port, function()
     -- Session ID will be set via SSE event
-    vim.notify("New session started", vim.log.levels.INFO, { title = "opencode" })
   end)
+  
+  -- Add a timeout to reset the pending flag if session creation fails
+  vim.defer_fn(function()
+    if M.state and M.state.session_creation_pending then
+      M.state.session_creation_pending = false
+      -- Only notify if session still hasn't been created
+      if not M.state.session_id then
+        local port_info = M.state.port and (" (port: " .. M.state.port .. ")") or ""
+        local message = table.concat({
+          "Session creation timed out" .. port_info .. ".",
+          "The opencode server may not be responding. Try:",
+          "1. Close this chat and restart opencode server",
+          "2. Press 'n' to create a new session",
+          "3. Check if multiple opencode processes are running",
+        }, "\n")
+        vim.notify(message, vim.log.levels.WARN, { title = "opencode" })
+      end
+    end
+  end, 10000)
 end
 
 ---Interrupt the current session
@@ -400,6 +447,7 @@ end
 function M.set_session_id(session_id)
   if M.state then
     M.state.session_id = session_id
+    M.state.session_creation_pending = false
   end
 end
 
