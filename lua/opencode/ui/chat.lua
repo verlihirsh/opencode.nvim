@@ -403,8 +403,12 @@ function M.new_session()
       M.state.session_creation_pending = false
       -- Only notify if session still hasn't been created
       if not M.state.session_id then
+        local port_info = M.state.port and (" (port: " .. M.state.port .. ")") or ""
         vim.notify(
-          "Session creation timed out. Please check opencode server or try again.",
+          "Session creation timed out" .. port_info .. ". The opencode server may not be responding. Try:\n" ..
+          "1. Close this chat and restart opencode server\n" ..
+          "2. Press 'n' to create a new session\n" ..
+          "3. Check if multiple opencode processes are running",
           vim.log.levels.WARN,
           { title = "opencode" }
         )

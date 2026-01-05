@@ -43,7 +43,8 @@ function M.start_chat(opts)
           chat.add_message({
             role = "assistant",
             text = string.format(
-              "Welcome to OpenCode Chat!\n\nType '%s' to send a message. A session will be created if needed.\n\nKeybindings:\n  %s - Send message\n  %s - New session\n  %s - Close\n  %s - Yank message\n  %s - Interrupt",
+              "Welcome to OpenCode Chat!\nConnected to opencode server on port %d\n\nType '%s' to send a message. A session will be created if needed.\n\nKeybindings:\n  %s - Send message\n  %s - New session\n  %s - Close\n  %s - Yank message\n  %s - Interrupt",
+              port,
               send_keys,
               send_keys,
               new_session_key,
