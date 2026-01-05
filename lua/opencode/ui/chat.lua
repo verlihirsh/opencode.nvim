@@ -10,7 +10,6 @@ local M = {}
 ---@field streaming_message_index number|nil
 ---@field provider_id string
 ---@field model_id string
----@field initializing boolean
 
 ---@type opencode.ui.chat.State|nil
 M.state = nil
@@ -87,7 +86,6 @@ function M.open(opts)
     streaming_message_index = nil,
     provider_id = opts.provider_id or config.provider_id or "anthropic",
     model_id = opts.model_id or config.model_id or "claude-3-5-sonnet-20241022",
-    initializing = true,
   }
 
   -- Setup keymaps
@@ -245,13 +243,14 @@ local function validate_session_ready()
     return false
   end
 
-  if M.state.initializing then
-    vim.notify("Session is initializing, please wait...", vim.log.levels.WARN, { title = "opencode" })
-    return false
-  end
-
   if not M.state.session_id then
-    vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
+    vim.notify(
+      "No active session. Creating a new session...",
+      vim.log.levels.WARN,
+      { title = "opencode" }
+    )
+    -- Try to create a session on-demand
+    M.new_session()
     return false
   end
 
@@ -377,33 +376,17 @@ function M.new_session()
     return
   end
 
-  -- Clear messages and mark as initializing
+  -- Clear messages
   M.state.messages = {}
   M.state.session_id = nil
   M.state.streaming_message_index = nil
-  M.state.initializing = true
   M.render()
 
   -- Create new session
   local client = require("opencode.cli.client")
   client.tui_execute_command("session.new", M.state.port, function()
     -- Session ID will be set via SSE event
-    -- Don't notify here - let the SSE event handler notify when session is ready
   end)
-
-  -- Add a timeout to handle case where SSE event doesn't arrive
-  vim.defer_fn(function()
-    if M.state and M.state.initializing then
-      -- Still initializing after 5 seconds, something is wrong
-      vim.notify(
-        "Session initialization timed out. Please try again or check opencode server.",
-        vim.log.levels.WARN,
-        { title = "opencode" }
-      )
-      -- Reset initializing flag to allow user to retry
-      M.state.initializing = false
-    end
-  end, 5000)
 end
 
 ---Interrupt the current session
@@ -436,7 +419,6 @@ end
 function M.set_session_id(session_id)
   if M.state then
     M.state.session_id = session_id
-    M.state.initializing = false
   end
 end
 

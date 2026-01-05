@@ -57,7 +57,7 @@ function M.subscribe(port)
       if session and session.id then
         chat.set_session_id(session.id)
         -- Notify that session is ready
-        vim.notify("Session ready - you can now send messages", vim.log.levels.INFO, { title = "opencode" })
+        vim.notify("Session ready", vim.log.levels.INFO, { title = "opencode" })
       end
     elseif event.type == "session.idle" then
       -- Session finished responding

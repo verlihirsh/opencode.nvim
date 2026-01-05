@@ -24,21 +24,6 @@ function M.start_chat(opts)
         -- Session will be set via SSE event
       end)
 
-      -- Add a timeout to handle case where SSE event doesn't arrive
-      vim.defer_fn(function()
-        local current_state = chat.get_state()
-        if current_state and current_state.initializing then
-          -- Still initializing after 5 seconds, something is wrong
-          vim.notify(
-            "Session initialization timed out. Please try pressing 'n' to create a new session.",
-            vim.log.levels.WARN,
-            { title = "opencode" }
-          )
-          -- Reset initializing flag to allow user to retry
-          current_state.initializing = false
-        end
-      end, 5000)
-
       -- Show welcome message
       vim.schedule(function()
         if chat.get_state() then
