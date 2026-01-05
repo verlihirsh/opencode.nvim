@@ -237,20 +237,30 @@ function M.render()
   end
 end
 
----Prompt for user input
-function M.prompt_input()
+---Validate that the chat is ready for interaction
+---@return boolean ready True if ready, false otherwise (with notification shown)
+local function validate_session_ready()
   if not M.state or not M.state.port then
     vim.notify("No connection to opencode", vim.log.levels.ERROR, { title = "opencode" })
-    return
+    return false
   end
 
   if M.state.initializing then
     vim.notify("Session is initializing, please wait...", vim.log.levels.WARN, { title = "opencode" })
-    return
+    return false
   end
 
   if not M.state.session_id then
     vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
+    return false
+  end
+
+  return true
+end
+
+---Prompt for user input
+function M.prompt_input()
+  if not validate_session_ready() then
     return
   end
 
@@ -264,18 +274,7 @@ end
 ---Send a message
 ---@param text string
 function M.send_message(text)
-  if not M.state or not M.state.port then
-    vim.notify("No connection to opencode", vim.log.levels.ERROR, { title = "opencode" })
-    return
-  end
-
-  if M.state.initializing then
-    vim.notify("Session is initializing, please wait...", vim.log.levels.WARN, { title = "opencode" })
-    return
-  end
-
-  if not M.state.session_id then
-    vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
+  if not validate_session_ready() then
     return
   end
 
