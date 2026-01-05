@@ -10,6 +10,7 @@ local M = {}
 ---@field streaming_message_index number|nil
 ---@field provider_id string
 ---@field model_id string
+---@field initializing boolean
 
 ---@type opencode.ui.chat.State|nil
 M.state = nil
@@ -86,6 +87,7 @@ function M.open(opts)
     streaming_message_index = nil,
     provider_id = opts.provider_id or config.provider_id or "anthropic",
     model_id = opts.model_id or config.model_id or "claude-3-5-sonnet-20241022",
+    initializing = true,
   }
 
   -- Setup keymaps
@@ -237,7 +239,17 @@ end
 
 ---Prompt for user input
 function M.prompt_input()
-  if not M.state or not M.state.port or not M.state.session_id then
+  if not M.state or not M.state.port then
+    vim.notify("No connection to opencode", vim.log.levels.ERROR, { title = "opencode" })
+    return
+  end
+
+  if M.state.initializing then
+    vim.notify("Session is initializing, please wait...", vim.log.levels.WARN, { title = "opencode" })
+    return
+  end
+
+  if not M.state.session_id then
     vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
     return
   end
@@ -252,7 +264,17 @@ end
 ---Send a message
 ---@param text string
 function M.send_message(text)
-  if not M.state or not M.state.port or not M.state.session_id then
+  if not M.state or not M.state.port then
+    vim.notify("No connection to opencode", vim.log.levels.ERROR, { title = "opencode" })
+    return
+  end
+
+  if M.state.initializing then
+    vim.notify("Session is initializing, please wait...", vim.log.levels.WARN, { title = "opencode" })
+    return
+  end
+
+  if not M.state.session_id then
     vim.notify("No active session", vim.log.levels.ERROR, { title = "opencode" })
     return
   end
@@ -356,17 +378,18 @@ function M.new_session()
     return
   end
 
-  -- Clear messages
+  -- Clear messages and mark as initializing
   M.state.messages = {}
   M.state.session_id = nil
   M.state.streaming_message_index = nil
+  M.state.initializing = true
   M.render()
 
   -- Create new session
   local client = require("opencode.cli.client")
   client.tui_execute_command("session.new", M.state.port, function()
     -- Session ID will be set via SSE event
-    vim.notify("New session started", vim.log.levels.INFO, { title = "opencode" })
+    -- Don't notify here - let the SSE event handler notify when session is ready
   end)
 end
 
@@ -400,6 +423,7 @@ end
 function M.set_session_id(session_id)
   if M.state then
     M.state.session_id = session_id
+    M.state.initializing = false
   end
 end
 
