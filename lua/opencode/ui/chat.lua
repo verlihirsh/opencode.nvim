@@ -399,13 +399,16 @@ function M.new_session()
   
   -- Add a timeout to reset the pending flag if session creation fails
   vim.defer_fn(function()
-    if M.state and M.state.session_creation_pending and not M.state.session_id then
+    if M.state and M.state.session_creation_pending then
       M.state.session_creation_pending = false
-      vim.notify(
-        "Session creation timed out. Please check opencode server or try again.",
-        vim.log.levels.WARN,
-        { title = "opencode" }
-      )
+      -- Only notify if session still hasn't been created
+      if not M.state.session_id then
+        vim.notify(
+          "Session creation timed out. Please check opencode server or try again.",
+          vim.log.levels.WARN,
+          { title = "opencode" }
+        )
+      end
     end
   end, 10000)
 end
