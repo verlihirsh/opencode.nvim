@@ -390,6 +390,20 @@ function M.new_session()
     -- Session ID will be set via SSE event
     -- Don't notify here - let the SSE event handler notify when session is ready
   end)
+
+  -- Add a timeout to handle case where SSE event doesn't arrive
+  vim.defer_fn(function()
+    if M.state and M.state.initializing then
+      -- Still initializing after 5 seconds, something is wrong
+      vim.notify(
+        "Session initialization timed out. Please try again or check opencode server.",
+        vim.log.levels.WARN,
+        { title = "opencode" }
+      )
+      -- Reset initializing flag to allow user to retry
+      M.state.initializing = false
+    end
+  end, 5000)
 end
 
 ---Interrupt the current session

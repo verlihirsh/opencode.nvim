@@ -15,6 +15,9 @@ function M.subscribe(port)
       return
     end
 
+    -- Debug: Log received event type
+    -- vim.notify("Received SSE event: " .. (event.type or "unknown"), vim.log.levels.DEBUG, { title = "opencode" })
+
     -- Handle different event types
     if event.type == "message.delta" then
       -- Streaming message chunk
